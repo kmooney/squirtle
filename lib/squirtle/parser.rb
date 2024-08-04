@@ -1,14 +1,4 @@
 module Squirtle::Parser
-    class ParserError < StandardError
-        def initialize(str, first_fail)
-            @str = str
-            @first_fail = first_fail
-        end
-
-        def message
-            "Failed to parse #{@first_fail.inspect} near #{@str}"
-        end
-    end
 
     class OneOf
         attr_reader :options
@@ -16,6 +6,13 @@ module Squirtle::Parser
             @options = options
         end
 
+        def inspect()
+            return "OneOf(#{options.inspect})"
+        end
+
+        def to_s
+            return inspect
+        end
     end
 
     class Optional
@@ -23,56 +20,124 @@ module Squirtle::Parser
         def initialize(*options)
             @options = options
         end
+
+        def inspect
+            return "Optional(#{options.inspect})"
+        end
     end
 
-    def self.eval_element(str, element)
+    def self.debug(str, element, tag, d)
+        gd = d
+        puts (0...d).map {"    "}.join + "#{tag.inspect} -> #{element.inspect} '#{str[0...20]}'"
+    end
+
+    def self.sdebug(str, element)
+        printf "%-40s %s\n", element.inspect, str
+    end
+
+    def self.eval_element(str, element, sequence_name, d = 0)
         str = str.strip.downcase
-        # puts "#{str.gsub(/[\n \t]+/, " ")} - (#{element.inspect})"
+        #debug(str,element, sequence_name, d)
+        #sdebug(str, element)
+        #puts (0...d).map{" "}.join + "i: " + element.class.to_s + " " + element.to_s
         case element
-        when Symbol
-            m, str = eval_sequence(str, @grammar[element])
-            return false, str if !m
         when String
             if str.start_with?(element.downcase)
-                str = str[element.length..-1]
+                rest = str[element.length..-1]
+                return TerminalNode.new(element), rest
             else
                 return false, str
             end
         when Regexp
             if m = str.match(element)
-                str = str[m[0].length..-1]
+                rest = str[m[0].length..-1]
+                return TerminalNode.new(m[0]), rest 
             else
                 return false, str
             end
         when OneOf
-            m = element.options.find do |o| 
-                _m, _str = eval_element(str, o)
+            _m = nil
+            node = element.options.find do |o| 
+                _m, _str = eval_element(str, o, sequence_name, d)
                 str = _str if _m
                 _m
             end
-            return false, str if m.nil?
+            if !node.nil?
+                return _m, str
+            else 
+                return false, str
+            end
         when Optional
-            _, str = eval_sequence(str, element.options)
+            node, str = eval_sequence(str, element.options, sequence_name, d + 1)
+            if node
+                return node, str
+            else
+                return TerminalNode.new(nil), str
+            end
+        when Symbol
+            return eval_sequence(str, @grammar[element], element, d + 1)
         end
-        return true, str
     end
 
-    def self.eval_sequence(str, sequence)
+    def self.eval_sequence(str, sequence, sequence_name, d = 0)
+        tree = Node.new(sequence_name, d)
         str = str.strip.downcase
         sequence.each do |element|
-            r, str = eval_element(str, element)
-            return false, str if !r
+            r, str = eval_element(str, element, sequence_name, d) 
+            if r
+                tree.add_child(r) if !r.defunct
+            else
+                return false, str
+            end
         end
-        return true, str
+        return tree, str
     end
 
-    def self.match(str, position = nil)
+    def self.match(str, sequence_name = nil)
         str = str.strip.downcase
-        position = :statement if position.nil?
-        sequence = @grammar[position]
-        e, str = eval_sequence(str, sequence)
-        # puts "failed on #{str}" if !e
+        sequence_name = :statement if sequence_name.nil?
+        sequence = @grammar[sequence_name]
+        e, str = eval_sequence(str, sequence, sequence_name)
+        # puts e
         return e
+    end
+
+    class Node
+
+        def initialize(sequence_name, depth)
+            @sequence_name = sequence_name
+            @children = []
+            @depth = depth
+        end
+
+        def add_child(node)
+            #puts "#{self} <- #{node}"
+            @children << node
+        end
+
+        def to_s
+            return "\n" + (0...@depth).map{" "}.join() + "(:#{@sequence_name} #{@children.join(" ")})"
+        end
+
+        def defunct
+            false
+        end
+
+    end
+
+    class TerminalNode < Node
+        def initialize(value)
+            @value = value
+        end
+
+        def defunct
+            return @value.nil?
+        end
+
+        def to_s
+            return "'#{@value}'"
+        end
+
     end
 
     @first_fail = nil
@@ -114,13 +179,13 @@ module Squirtle::Parser
             :value, Optional.new(",", :values)
         ],
         :table_field => [
-            /^[\w]+[\.\w]*/, Optional.new(:alias)
+            /[\w]*[\.\w]*/, Optional.new(:alias)
         ],
         :alias => [
             "AS", /^[\w]+/
         ],
         :aggregate_function => [
-            :function_name, "(", :fields,")"
+            :function_name, "(", :values, ")"
         ],
         :function_name => [
             /^[\w]+/
@@ -144,7 +209,7 @@ module Squirtle::Parser
             OneOf.new("=", ">", "<", ">=", "<=", "<>", "LIKE", "IN")
         ],
         :value => [
-            OneOf.new(:field, :literal)
+            OneOf.new(:literal, :field)
         ],
         :literal => [
             OneOf.new(:dquote_literal, :squote_literal, :number, :list_expr)
