@@ -44,7 +44,7 @@ module Squirtle::Parser
         when String
             if str.start_with?(element.downcase)
                 rest = str[element.length..-1]
-                return TerminalNode.new(element), rest
+                return TerminalNode.new(nil), rest
             else
                 return false, str
             end
@@ -68,7 +68,7 @@ module Squirtle::Parser
                 return false, str
             end
         when Optional
-            node, str = eval_sequence(str, element.options, sequence_name, d + 1)
+            node, str = eval_sequence(str, element.options, :optional, d + 1)
             if node
                 return node, str
             else
@@ -85,7 +85,11 @@ module Squirtle::Parser
         sequence.each do |element|
             r, str = eval_element(str, element, sequence_name, d) 
             if r
-                tree.add_child(r) if !r.defunct
+                if r.sequence_name == :optional
+                    r.children.each {|n| tree.add_child(n)}
+                elsif !r.defunct 
+                    tree.add_child(r)
+                end
             else
                 return false, str
             end
@@ -98,11 +102,13 @@ module Squirtle::Parser
         sequence_name = :statement if sequence_name.nil?
         sequence = @grammar[sequence_name]
         e, str = eval_sequence(str, sequence, sequence_name)
-        # puts e
+        puts e
         return e
     end
 
     class Node
+
+        attr_reader :children, :sequence_name
 
         def initialize(sequence_name, depth)
             @sequence_name = sequence_name
@@ -126,8 +132,13 @@ module Squirtle::Parser
     end
 
     class TerminalNode < Node
+
         def initialize(value)
             @value = value
+        end
+
+        def sequence_name
+            :terminal
         end
 
         def defunct
