@@ -63,7 +63,4 @@ class TestSquirtle < Minitest::Test
         assert(jt == ['salaries', 'cars'])
     end
 
-    def test_inspector_where_criteria_list
-    end
-
 end
