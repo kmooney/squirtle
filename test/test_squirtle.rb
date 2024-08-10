@@ -52,7 +52,12 @@ class TestSquirtle < Minitest::Test
     end
 
     def test_inspector_join_table_list
-        ast = Squirtle.parse("SELECT * FROM employees JOIN salaries ON salaries.employee_id = employees.id AND salaries.amount > 5000 JOIN cars AS car ON car.employee_id = employees.id")
+        ast = Squirtle.parse("SELECT * 
+            FROM employees 
+            JOIN salaries 
+                ON salaries.employee_id = employees.id AND salaries.amount > 5000 
+            JOIN cars AS car ON car.employee_id = employees.id
+        ")
         inspector = Squirtle::Inspector.new(ast)
         jt = inspector.join_tables
         assert(jt == ['salaries', 'cars'])
