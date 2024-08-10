@@ -36,4 +36,29 @@ class TestSquirtle < Minitest::Test
         assert(!Squirtle.parse("SELECT $ FROM 098 WHERE xyz = SELECT"))
     end
 
+    def test_find
+        ast = Squirtle.parse("SELECT * FROM some_table WHERE some_value = 'kevin'")
+        assert(ast, "should have result")
+        f = ast.find(:field)
+        assert(f.count, 1)
+        assert(f.first.sequence_name == :field)
+    end
+
+    def test_find_joins
+        ast = Squirtle.parse("SELECT * FROM employees JOIN salaries ON salaries.employee_id = employees.id AND salaries.amount > 5000 JOIN cars AS car ON car.employee_id = employees.id")
+        f = ast.find(:join)
+        assert(f.count, 2)
+        assert(f.all? {|t| t.sequence_name == :join})
+    end
+
+    def test_inspector_join_table_list
+        ast = Squirtle.parse("SELECT * FROM employees JOIN salaries ON salaries.employee_id = employees.id AND salaries.amount > 5000 JOIN cars AS car ON car.employee_id = employees.id")
+        inspector = Squirtle::Inspector.new(ast)
+        jt = inspector.join_tables
+        assert(jt == ['salaries', 'cars'])
+    end
+
+    def test_inspector_where_criteria_list
+    end
+
 end

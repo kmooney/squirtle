@@ -1,33 +1,8 @@
 module Squirtle::Parser
 
-    class OneOf
-        attr_reader :options
-        def initialize(*options)
-            @options = options
-        end
-
-        def inspect()
-            return "OneOf(#{options.inspect})"
-        end
-
-        def to_s
-            return inspect
-        end
-    end
-
-    class Optional
-        attr_reader :options
-        def initialize(*options)
-            @options = options
-        end
-
-        def inspect
-            return "Optional(#{options.inspect})"
-        end
-    end
+    @grammar = Squirtle::SQLGrammar.grammar
 
     def self.debug(str, element, tag, d)
-        gd = d
         puts (0...d).map {"    "}.join + "#{tag.inspect} -> #{element.inspect} '#{str[0...20]}'"
     end
 
@@ -55,7 +30,7 @@ module Squirtle::Parser
             else
                 return false, str
             end
-        when OneOf
+        when Squirtle::Grammar::OneOf
             _m = nil
             node = element.options.find do |o| 
                 _m, _str = eval_element(str, o, sequence_name, d)
@@ -67,7 +42,7 @@ module Squirtle::Parser
             else 
                 return false, str
             end
-        when Optional
+        when Squirtle::Grammar::Optional
             node, str = eval_sequence(str, element.options, :optional, d + 1)
             if node
                 return node, str
@@ -102,7 +77,6 @@ module Squirtle::Parser
         sequence_name = :statement if sequence_name.nil?
         sequence = @grammar[sequence_name]
         e, str = eval_sequence(str, sequence, sequence_name)
-        puts e
         return e
     end
 
@@ -114,6 +88,14 @@ module Squirtle::Parser
             @sequence_name = sequence_name
             @children = []
             @depth = depth
+        end
+
+        def find(sequence_name)
+            result = []
+            # examine each child, if the sequence matches, add the node to the list.
+            result = @children.select {|c| c.sequence_name == sequence_name}
+            result += @children.map {|c| c.find(sequence_name)}.flatten
+            return result
         end
 
         def add_child(node)
@@ -133,12 +115,19 @@ module Squirtle::Parser
 
     class TerminalNode < Node
 
+        attr_reader :value
+
         def initialize(value)
             @value = value
         end
 
         def sequence_name
             :terminal
+        end
+
+        def find(sequence_name)
+            # terminal nodes have no children
+            return []
         end
 
         def defunct
@@ -151,100 +140,5 @@ module Squirtle::Parser
 
     end
 
-    @first_fail = nil
-    @grammar = {
-        :statement => [
-           OneOf.new(:select, :insert, :delete, :update)
-        ],
-        :update => [
-            "UPDATE", :table_name, "SET", :fields, Optional.new(:where)
-        ],
-        :delete => [
-            "DELETE", "FROM", :table_name, Optional.new(:where)
-        ],
-        :insert => [
-            "INSERT", "INTO", :table_name, "(", :fields, ")", "VALUES", :val_def
-        ],
-        :val_def => [
-            "(", :values, ")", Optional.new(",", :val_def)
-        ],
-        :select => [
-            "SELECT", 
-            :fields, 
-            "FROM", 
-            :table_name, 
-            Optional.new(:joins), 
-            Optional.new(:where), 
-            Optional.new(:group_by)
-        ],
-        :fields => [
-            OneOf.new("*", :field_def)
-        ],
-        :field_def => [
-            :field, Optional.new(",", :field_def)
-        ],
-        :field => [
-            OneOf.new(:aggregate_function, :table_field)
-        ],
-        :values => [
-            :value, Optional.new(",", :values)
-        ],
-        :table_field => [
-            /[\w]*[\.\w]*/, Optional.new(:alias)
-        ],
-        :alias => [
-            "AS", /^[\w]+/
-        ],
-        :aggregate_function => [
-            :function_name, "(", :values, ")"
-        ],
-        :function_name => [
-            /^[\w]+/
-        ],
-        :table_name => [
-            /^[\w]+/, Optional.new(:alias)
-        ],
-        :joins => [
-            :join, Optional.new(:joins)
-        ],
-        :join => [
-            Optional.new(OneOf.new("INNER", "LEFT", "RIGHT", "OUTER")), "JOIN", :table_name, "ON", :conditions
-        ],
-        :conditions => [
-            :condition, Optional.new(:logical_operator, :conditions)
-        ],
-        :condition => [
-            :value, :operator, :value
-        ],
-        :operator => [
-            OneOf.new("=", ">", "<", ">=", "<=", "<>", "LIKE", "IN")
-        ],
-        :value => [
-            OneOf.new(:literal, :field)
-        ],
-        :literal => [
-            OneOf.new(:dquote_literal, :squote_literal, :number, :list_expr)
-        ],
-        :list_expr => [
-            "(", :values, ")"
-        ],
-        :dquote_literal => [
-            "\"", /^[\w]+/, "\""
-        ],
-        :squote_literal => [
-            "'", /^[\w]+/, "'"
-        ],
-        :number => [
-            /^\d+/
-        ],
-        :where => [
-            "WHERE", :conditions
-        ],
-        :group_by => [
-            "GROUP", "BY", :fields
-        ],
-        :logical_operator => [
-            OneOf.new("AND", "OR")
-        ]
-    }
+
 end

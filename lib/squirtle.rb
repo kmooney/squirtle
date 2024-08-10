@@ -4,4 +4,6 @@ module Squirtle
     end
 end
 
+require "squirtle/inspector"
+require "squirtle/grammar"
 require "squirtle/parser"
