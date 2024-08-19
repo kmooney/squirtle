@@ -92,4 +92,8 @@ class TestSquirtle < Minitest::Test
         assert(jt == ['salaries', 'cars'])
     end
 
+    def test_magic_traversal
+        ast = Squirtle.parse(SIMPLE_QUERY)
+        assert(ast.get_child(:select) == ast.select)
+    end
 end

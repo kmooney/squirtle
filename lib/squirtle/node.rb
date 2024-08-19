@@ -31,6 +31,16 @@ module Squirtle
             false
         end
 
+        def get_child(sequence_name)
+        	child = @children.find {|c| c.sequence_name == sequence_name}
+        	return child
+        end
+
+        # magic to allow chaining thru tree
+        def method_missing(name)
+        	return get_child(name)
+        end
+
     end
 
     class TerminalNode < Node
