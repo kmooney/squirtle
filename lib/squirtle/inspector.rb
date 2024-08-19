@@ -25,11 +25,29 @@ module Squirtle
 			return @root.children.first.sequence_name
 		end
 
-		def where_criteria
-			conditions = @root.find(:where)
-			puts conditions.join("||")
+
+
+		def where_has?(name)
+			where = @root.find(:where).first
+			c_arry = where.conditions.find(:condition)
+			exprs = c_arry.map do |tree|
+				values = tree.find(:value)
+				op = tree.operator
+				Expression.new(values[0], op, values[1])
+			end
+
+			return exprs.find{|e| e.ls == name}
 		end
 
+	end
+
+	class Expression
+		attr_reader :ls, :op, :rs
+		def initialize(ls, op, rs)
+			@ls = ls.find(:field_val).first.children.first.value
+			@op = op.children.first.sequence_name
+			@rs = rs.literal.children.first.children.first.value
+		end
 	end
 
 end

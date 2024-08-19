@@ -76,8 +76,15 @@ class TestSquirtle < Minitest::Test
     def test_inspect_where_criteria
         ast = Squirtle.parse(SIMPLE_QUERY)
         i = Squirtle::Inspector.new(ast)
-        i.where_criteria
+        assert(!!i.where_has?("salary"))
+    end
 
+    def test_inspect_expr_op
+        ast = Squirtle.parse(SIMPLE_QUERY)
+        i = Squirtle::Inspector.new(ast)
+        assert(i.where_has?("salary").rs == '60000')
+        assert(i.where_has?("salary").op == :gt)
+        assert(i.where_has?("car_color").op == :eq)
     end
 
     def test_inspector_join_table_list
