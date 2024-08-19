@@ -50,13 +50,17 @@ class Squirtle::SQLGrammar < Squirtle::Grammar
             "(", :values, ")", Optional.new(",", :val_def)
         ],
         :select => [
-            "SELECT", 
-            :fields, 
-            "FROM", 
-            :table_name, 
+            :select_fields,
+            :from,
             Optional.new(:joins), 
             Optional.new(:where), 
             Optional.new(:group_by)
+        ],
+        :select_fields => [
+            "SELECT", :fields
+        ],
+        :from => [
+            "FROM", :table_name
         ],
         :fields => [
             OneOf.new("*", :field_def)
@@ -104,10 +108,31 @@ class Squirtle::SQLGrammar < Squirtle::Grammar
             :value, :operator, :value
         ],
         :operator => [
-            OneOf.new(:eq, ">", "<", ">=", "<=", "<>", "LIKE", "IN")
+            OneOf.new(:eq, :gt, :lt, :gte, :lte, :ne, :like, :in)
         ],
         :eq => [
             "="
+        ],
+        :gt => [
+            ">"
+        ],
+        :lt => [
+            "<"
+        ],
+        :gte => [
+            ">="
+        ],
+        :lte => [
+            "<="
+        ],
+        :ne => [
+            "<>" # BS should be oneof <> or !=
+        ],
+        :like => [
+            "LIKE"
+        ],
+        :in => [
+            "IN"
         ],
         :value => [
             OneOf.new(:literal, :field)
@@ -134,7 +159,13 @@ class Squirtle::SQLGrammar < Squirtle::Grammar
             "GROUP", "BY", :fields
         ],
         :logical_operator => [
-            OneOf.new("AND", "OR")
+            OneOf.new(:and, :or)
+        ],
+        :and => [
+            "AND"
+        ],
+        :or => [
+            "OR"
         ]
     }
 

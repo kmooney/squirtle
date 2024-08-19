@@ -19,14 +19,14 @@ module Squirtle::Parser
         when String
             if str.start_with?(element.downcase)
                 rest = str[element.length..-1]
-                return TerminalNode.new(nil), rest
+                return Squirtle::TerminalNode.new(nil), rest
             else
                 return false, str
             end
         when Regexp
             if m = str.match(element)
                 rest = str[m[0].length..-1]
-                return TerminalNode.new(m[0]), rest 
+                return Squirtle::TerminalNode.new(m[0]), rest 
             else
                 return false, str
             end
@@ -47,7 +47,7 @@ module Squirtle::Parser
             if node
                 return node, str
             else
-                return TerminalNode.new(nil), str
+                return Squirtle::TerminalNode.new(nil), str
             end
         when Symbol
             return eval_sequence(str, @grammar[element], element, d + 1)
@@ -55,7 +55,7 @@ module Squirtle::Parser
     end
 
     def self.eval_sequence(str, sequence, sequence_name, d = 0)
-        tree = Node.new(sequence_name, d)
+        tree = Squirtle::Node.new(sequence_name, d)
         str = str.strip.downcase
         sequence.each do |element|
             r, str = eval_element(str, element, sequence_name, d) 
@@ -79,66 +79,5 @@ module Squirtle::Parser
         e, str = eval_sequence(str, sequence, sequence_name)
         return e
     end
-
-    class Node
-
-        attr_reader :children, :sequence_name
-
-        def initialize(sequence_name, depth)
-            @sequence_name = sequence_name
-            @children = []
-            @depth = depth
-        end
-
-        def find(sequence_name)
-            result = []
-            # examine each child, if the sequence matches, add the node to the list.
-            result = @children.select {|c| c.sequence_name == sequence_name}
-            result += @children.map {|c| c.find(sequence_name)}.flatten
-            return result
-        end
-
-        def add_child(node)
-            #puts "#{self} <- #{node}"
-            @children << node
-        end
-
-        def to_s
-            return "\n" + (0...@depth).map{" "}.join() + "(:#{@sequence_name} #{@children.join(" ")})"
-        end
-
-        def defunct
-            false
-        end
-
-    end
-
-    class TerminalNode < Node
-
-        attr_reader :value
-
-        def initialize(value)
-            @value = value
-        end
-
-        def sequence_name
-            :terminal
-        end
-
-        def find(sequence_name)
-            # terminal nodes have no children
-            return []
-        end
-
-        def defunct
-            return @value.nil?
-        end
-
-        def to_s
-            return "'#{@value}'"
-        end
-
-    end
-
 
 end

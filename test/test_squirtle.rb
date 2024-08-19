@@ -2,6 +2,7 @@ require "minitest/autorun"
 require "squirtle"
 
 class TestSquirtle < Minitest::Test
+    SIMPLE_QUERY = "SELECT name, gender FROM employees WHERE salary > 60000 AND car_color='red' "
     def test_select
         assert(Squirtle.parse("SELECT * FROM table"))
     end
@@ -25,9 +26,11 @@ class TestSquirtle < Minitest::Test
     def test_delete
         assert(Squirtle.parse("DELETE FROM table WHERE id IN (1,2,3)"))
     end
+
     def test_select_join
         assert(Squirtle.parse("SELECT author.name, book.title FROM books AS book JOIN authors AS author ON book.author_id = author.id WHERE book.id = 123"))
     end
+
     def test_invalid_fails
         assert(!Squirtle.parse("SELECT uhh"))
     end
@@ -49,6 +52,32 @@ class TestSquirtle < Minitest::Test
         f = ast.find(:join)
         assert(f.count, 2)
         assert(f.all? {|t| t.sequence_name == :join})
+    end
+
+    def test_inspect_from_table
+        ast = Squirtle.parse("SELECT name, gender FROM employees WHERE salary > 600000")
+        i = Squirtle::Inspector.new(ast)
+        table_name = i.from_table
+        assert(table_name, "employees")
+    end
+
+    def test_inspect_select_fields
+        ast = Squirtle.parse(SIMPLE_QUERY)
+        i = Squirtle::Inspector.new(ast)
+        assert(i.select_fields == ["name", "gender"])
+    end
+
+    def test_inspect_query_type
+        ast = Squirtle.parse(SIMPLE_QUERY)
+        i = Squirtle::Inspector.new(ast)
+        assert(i.query_type == :select)
+    end
+
+    def test_inspect_where_criteria
+        ast = Squirtle.parse(SIMPLE_QUERY)
+        i = Squirtle::Inspector.new(ast)
+        i.where_criteria
+
     end
 
     def test_inspector_join_table_list
